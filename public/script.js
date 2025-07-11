@@ -1,12 +1,29 @@
 // Global variables
 let mealData = [];
-const mealOptions = ['yes', 'no', 'maybe', 'late'];
+const mealOptions = {
+    breakfast: ['yes', 'no', 'maybe'], // removed 'late' for breakfast
+    lunch: ['yes', 'no', 'maybe', 'late'],
+    dinner: ['yes', 'no', 'maybe', 'late']
+};
 const mealTranslations = {
     'yes': '食',
     'no': '唔食',
     'maybe': '可能',
     'late': '遲'
 };
+
+// Generate time options for breakfast (7:00-11:00, 15min intervals)
+function generateTimeOptions() {
+    const times = [];
+    for (let hour = 7; hour <= 11; hour++) {
+        for (let minute = 0; minute < 60; minute += 15) {
+            if (hour === 11 && minute > 0) break; // Stop at 11:00
+            const timeStr = `${hour}:${minute.toString().padStart(2, '0')}`;
+            times.push(timeStr);
+        }
+    }
+    return times;
+}
 
 // DOM elements
 const mealTableBody = document.getElementById('mealTableBody');
@@ -51,12 +68,25 @@ function renderTable() {
         // Meal columns
         ['breakfast', 'lunch', 'dinner'].forEach(meal => {
             const cell = document.createElement('td');
-            const button = document.createElement('button');
+            const container = document.createElement('div');
+            container.className = 'meal-container';
             
+            const button = document.createElement('button');
             button.className = `meal-cell ${dayData[meal]}`;
-            button.textContent = mealTranslations[dayData[meal]];
+            
+            // Display text with time for breakfast
+            if (meal === 'breakfast' && dayData[meal] === 'yes') {
+                button.textContent = `${mealTranslations[dayData[meal]]} (${dayData.breakfast_time})`;
+            } else {
+                button.textContent = mealTranslations[dayData[meal]];
+            }
+            
             button.setAttribute('data-date', dayData.date);
             button.setAttribute('data-meal', meal);
+            button.setAttribute('data-meal-value', dayData[meal]);
+            if (meal === 'breakfast') {
+                button.setAttribute('data-breakfast-time', dayData.breakfast_time);
+            }
             
             // Add click event listener
             button.addEventListener('click', function() {
@@ -71,7 +101,15 @@ function renderTable() {
                 }
             });
             
-            cell.appendChild(button);
+            container.appendChild(button);
+            
+            // Add time dropdown for breakfast when it's "食"
+            if (meal === 'breakfast' && dayData[meal] === 'yes') {
+                const timeSelect = createTimeDropdown(dayData.date, dayData.breakfast_time);
+                container.appendChild(timeSelect);
+            }
+            
+            cell.appendChild(container);
             row.appendChild(cell);
         });
         
@@ -79,29 +117,102 @@ function renderTable() {
     });
 }
 
+// Create time dropdown for breakfast
+function createTimeDropdown(date, currentTime) {
+    const select = document.createElement('select');
+    select.className = 'time-select';
+    select.setAttribute('data-date', date);
+    
+    const times = generateTimeOptions();
+    times.forEach(time => {
+        const option = document.createElement('option');
+        option.value = time;
+        option.textContent = time;
+        if (time === currentTime) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+    
+    // Handle time change
+    select.addEventListener('change', function() {
+        const newTime = this.value;
+        const date = this.getAttribute('data-date');
+        
+        // Update local data
+        const dayData = mealData.find(d => d.date === date);
+        if (dayData) {
+            dayData.breakfast_time = newTime;
+        }
+        
+        // Update button display
+        const button = document.querySelector(`button[data-date="${date}"][data-meal="breakfast"]`);
+        if (button) {
+            button.textContent = `${mealTranslations['yes']} (${newTime})`;
+            button.setAttribute('data-breakfast-time', newTime);
+        }
+        
+        // Save to server
+        saveMealData(date, 'breakfast', 'yes', newTime);
+    });
+    
+    return select;
+}
+
 // Cycle through meal options
 function cycleMealOption(button) {
+    const meal = button.getAttribute('data-meal');
     const currentValue = button.getAttribute('data-meal-value') || 
-                        button.className.split(' ').find(cls => mealOptions.includes(cls));
+                        button.className.split(' ').find(cls => ['yes', 'no', 'maybe', 'late'].includes(cls));
     
-    const currentIndex = mealOptions.indexOf(currentValue);
-    const nextIndex = (currentIndex + 1) % mealOptions.length;
-    const nextValue = mealOptions[nextIndex];
+    const options = mealOptions[meal];
+    const currentIndex = options.indexOf(currentValue);
+    const nextIndex = (currentIndex + 1) % options.length;
+    const nextValue = options[nextIndex];
+    
+    // Get stored breakfast time for cycling back to "yes"
+    let breakfastTime = '8:30'; // default
+    if (meal === 'breakfast') {
+        breakfastTime = button.getAttribute('data-breakfast-time') || '8:30';
+    }
     
     // Update button appearance immediately for responsive feel
     button.className = `meal-cell ${nextValue}`;
-    button.textContent = mealTranslations[nextValue];
     button.setAttribute('data-meal-value', nextValue);
+    
+    // Update button text and handle time dropdown
+    if (meal === 'breakfast' && nextValue === 'yes') {
+        button.textContent = `${mealTranslations[nextValue]} (${breakfastTime})`;
+        button.setAttribute('data-breakfast-time', breakfastTime);
+        
+        // Add time dropdown if not exists
+        const container = button.parentElement;
+        if (!container.querySelector('.time-select')) {
+            const timeSelect = createTimeDropdown(button.getAttribute('data-date'), breakfastTime);
+            container.appendChild(timeSelect);
+        }
+    } else {
+        button.textContent = mealTranslations[nextValue];
+        
+        // Remove time dropdown for breakfast if switching away from "yes"
+        if (meal === 'breakfast') {
+            const container = button.parentElement;
+            const timeSelect = container.querySelector('.time-select');
+            if (timeSelect) {
+                timeSelect.remove();
+            }
+        }
+    }
     
     // Save to server
     const date = button.getAttribute('data-date');
-    const meal = button.getAttribute('data-meal');
+    const time = (meal === 'breakfast' && nextValue === 'yes') ? breakfastTime : '';
     
-    saveMealData(date, meal, nextValue);
+    saveMealData(date, meal, nextValue, time);
 }
 
 // Save meal data to server
-async function saveMealData(date, meal, value) {
+async function saveMealData(date, meal, value, breakfastTime = '') {
     try {
         const response = await fetch('/api/meals', {
             method: 'POST',
@@ -111,7 +222,8 @@ async function saveMealData(date, meal, value) {
             body: JSON.stringify({
                 date: date,
                 meal: meal,
-                value: value
+                value: value,
+                breakfast_time: breakfastTime
             })
         });
         
@@ -123,6 +235,9 @@ async function saveMealData(date, meal, value) {
         const dayData = mealData.find(d => d.date === date);
         if (dayData) {
             dayData[meal] = value;
+            if (meal === 'breakfast') {
+                dayData.breakfast_time = breakfastTime;
+            }
         }
         
         showStatus('已儲存！', 'success');

@@ -15,7 +15,7 @@ app.use(express.static('public'));
 // Initialize CSV file if it doesn't exist
 function initializeCSV() {
     if (!fs.existsSync(CSV_FILE)) {
-        fs.writeFileSync(CSV_FILE, 'date,breakfast,lunch,dinner\n');
+        fs.writeFileSync(CSV_FILE, 'date,breakfast,lunch,dinner,breakfast_time\n');
     }
 }
 
@@ -45,9 +45,9 @@ function readCSVData() {
     
     // Skip header row
     for (let i = 1; i < lines.length; i++) {
-        const [date, breakfast, lunch, dinner] = lines[i].split(',');
+        const [date, breakfast, lunch, dinner, breakfast_time] = lines[i].split(',');
         if (date) {
-            data[date] = { breakfast, lunch, dinner };
+            data[date] = { breakfast, lunch, dinner, breakfast_time: breakfast_time || '' };
         }
     }
     
@@ -55,7 +55,7 @@ function readCSVData() {
 }
 
 // Write/update CSV data
-function writeCSVData(date, meal, value) {
+function writeCSVData(date, meal, value, time = '') {
     const csvData = readCSVData();
     
     // Initialize day if it doesn't exist
@@ -63,17 +63,23 @@ function writeCSVData(date, meal, value) {
         csvData[date] = {
             breakfast: 'yes',
             lunch: 'no',
-            dinner: 'yes'
+            dinner: 'yes',
+            breakfast_time: ''
         };
     }
     
     // Update the specific meal
     csvData[date][meal] = value;
     
+    // Update breakfast time if provided
+    if (meal === 'breakfast' && time !== undefined) {
+        csvData[date]['breakfast_time'] = time;
+    }
+    
     // Write back to CSV
-    let csvContent = 'date,breakfast,lunch,dinner\n';
+    let csvContent = 'date,breakfast,lunch,dinner,breakfast_time\n';
     for (const [dateKey, meals] of Object.entries(csvData)) {
-        csvContent += `${dateKey},${meals.breakfast},${meals.lunch},${meals.dinner}\n`;
+        csvContent += `${dateKey},${meals.breakfast},${meals.lunch},${meals.dinner},${meals.breakfast_time || ''}\n`;
     }
     
     // Write to temporary file first, then rename for atomic operation
@@ -93,7 +99,8 @@ app.get('/api/meals', (req, res) => {
             date: date,
             breakfast: existing ? existing.breakfast : 'yes',
             lunch: existing ? existing.lunch : 'no',
-            dinner: existing ? existing.dinner : 'yes'
+            dinner: existing ? existing.dinner : 'yes',
+            breakfast_time: existing ? existing.breakfast_time || '8:30' : '8:30'
         };
     });
     
@@ -101,7 +108,7 @@ app.get('/api/meals', (req, res) => {
 });
 
 app.post('/api/meals', (req, res) => {
-    const { date, meal, value } = req.body;
+    const { date, meal, value, breakfast_time } = req.body;
     
     // Validate input
     if (!date || !meal || !value) {
@@ -116,7 +123,7 @@ app.post('/api/meals', (req, res) => {
     }
     
     try {
-        writeCSVData(date, meal, value);
+        writeCSVData(date, meal, value, breakfast_time);
         res.json({ success: true });
     } catch (error) {
         console.error('Error writing CSV:', error);

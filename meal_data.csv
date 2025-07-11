@@ -1,4 +1,5 @@
-date,breakfast,lunch,dinner
-2025-07-15,yes,maybe,no
-2025-07-11,late,no,yes
-2025-07-12,yes,no,yes
+date,breakfast,lunch,dinner,breakfast_time
+2025-07-15,yes,maybe,no,10:00
+2025-07-11,no,no,yes,
+2025-07-12,yes,no,yes,9:15
+2025-07-14,yes,no,yes,9:45
