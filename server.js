@@ -76,7 +76,10 @@ function writeCSVData(date, meal, value) {
         csvContent += `${dateKey},${meals.breakfast},${meals.lunch},${meals.dinner}\n`;
     }
     
-    fs.writeFileSync(CSV_FILE, csvContent);
+    // Write to temporary file first, then rename for atomic operation
+    const tempFile = CSV_FILE + '.tmp';
+    fs.writeFileSync(tempFile, csvContent);
+    fs.renameSync(tempFile, CSV_FILE);
 }
 
 // API Routes
