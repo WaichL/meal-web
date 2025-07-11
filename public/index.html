@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>澄回家食飯？</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>澄回家食飯？</h1>
+        <p class="subtitle">點擊任何格子更改用餐狀況</p>
+        
+        <div class="table-container">
+            <table id="mealTable" class="meal-table">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>早餐</th>
+                        <th>午餐</th>
+                        <th>晚餐</th>
+                    </tr>
+                </thead>
+                <tbody id="mealTableBody">
+                    <!-- Table rows will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-color yes"></span>
+                <span>食</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color no"></span>
+                <span>唔食</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color maybe"></span>
+                <span>可能</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color late"></span>
+                <span>遲</span>
+            </div>
+        </div>
+        
+        <div class="status" id="statusMessage"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
